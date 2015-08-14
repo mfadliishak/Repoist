@@ -2,6 +2,11 @@
 
 Laravel 5 repository generator.
 
+Based on [Repoist](https://github.com/OzanKurt/Repoist) by [Ozan Kurt](https://github.com/OzanKurt)
+
+Added Contract Path in config and creating folder(s) capability when making a repository.
+
+
 ## Usage
 
 ### Step 1: Install Through Composer
@@ -83,11 +88,28 @@ return [
 	'model_path' => '',
 
 	/**
+	 * Default path of contracts in laravel is the `Repositories` folder inside the `app` folder.
+	 * In this case:
+	 * 		app/Repositories
+	 */
+	'contract_path' => '',
+
+	/**
 	 * Configure the naming convention you wish for your repositories.
+	 *
+	 * Default:
+	 * 		- Contract: {name}Repository
+	 * 		- Eloquent: Eloquent{name}Repository
+	 *
+	 * Example: php artisan make:repository Users 
+	 * 		- Contract: UsersRepository
+	 * 		- Eloquent: EloquentUsersRepository
 	 */
 	'fileNames' => [
+
 		'contract' => '{name}Repository',
 		'eloquent' => 'Eloquent{name}Repository',
+		
 	],
 
 ];

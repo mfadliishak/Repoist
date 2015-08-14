@@ -1,0 +1,18 @@
+<?php namespace {{namespace}};
+
+use {{model_use}};
+
+interface {{contract}}
+{
+    
+    public function all();
+
+    public function find($id);
+
+    public function create($data);
+
+    public function update({{model}} $model, $data);
+
+    public function delete({{model}} $model);
+
+}

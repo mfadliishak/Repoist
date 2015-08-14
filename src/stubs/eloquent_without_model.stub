@@ -1,10 +1,13 @@
 <?php namespace {{namespace}};
 
-class {{class}} implements {{contract}}
+use {{contract_path}} as {{contract}}Interface;
+
+class {{class}} implements {{contract}}Interface
 {
     
-    public function getAll()
+    public function all()
     {
         //
     }
+    
 }

@@ -3,6 +3,6 @@
 interface {{contract}}
 {
     
-    public function getAll();
+    public function all();
 
 }

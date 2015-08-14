@@ -51,7 +51,6 @@ class RepositoryMakeCommand extends Command
      * Create a new command instance.
      *
      * @param Filesystem $files
-     * @param NameParser $parser
      * @param Composer $composer
      */
     public function __construct(Filesystem $files, Composer $composer)
@@ -69,7 +68,7 @@ class RepositoryMakeCommand extends Command
      */
     public function fire()
     {
-        $this->meta['namespace'] = $this->generateNamespace();
+        $this->meta['namespaces'] = $this->generateNamespaces();
         $this->meta['names'] = $this->generateNames();
         $this->meta['paths'] = $this->generatePaths();
 
@@ -79,9 +78,13 @@ class RepositoryMakeCommand extends Command
     /**
      * @return mixed
      */
-    private function generateNamespace()
+    private function generateNamespaces()
     {
-        return str_replace('/', '\\', $this->getAppNamespace().config('repoist.path').'/'.$this->argument('name'));
+        $contract_config = !empty(config('repoist.contract_path')) ? config('repoist.contract_path').'/' : '';
+        return [
+            'contract' => str_replace('/', '\\', $this->getAppNamespace().$contract_config.config('repoist.path').'/'.$this->getTrailingFolders() ),
+            'eloquent' => str_replace('/', '\\', $this->getAppNamespace().config('repoist.path').'/'.$this->getTrailingFolders()),
+        ];
     }
 
     /**
@@ -89,9 +92,10 @@ class RepositoryMakeCommand extends Command
      */
     private function generatePaths()
     {
+        $contract_config = !empty(config('repoist.contract_path')) ? config('repoist.contract_path').'/' : '';
         return [
-            'contract' => './app/'.str_replace('{name}', $this->argument('name'), config('repoist.path')).'/'.$this->argument('name').'/'.$this->meta['names']['contract'].'.php',
-            'eloquent' => './app/'.str_replace('{name}', $this->argument('name'), config('repoist.path')).'/'.$this->argument('name').'/'.$this->meta['names']['eloquent'].'.php',
+            'contract' => './app/'.str_replace('{name}', $this->argument('name'), $contract_config.config('repoist.path').'/'.$this->getTrailingFolders()).'/'.$this->meta['names']['contract'].'.php',
+            'eloquent' => './app/'.str_replace('{name}', $this->argument('name'), config('repoist.path')).'/'.$this->getTrailingFolders().'/'.$this->meta['names']['eloquent'].'.php',
         ];
     }
 
@@ -101,9 +105,44 @@ class RepositoryMakeCommand extends Command
     private function generateNames()
     {
         return [
-            'contract' => str_replace('{name}', $this->argument('name'), config('repoist.fileNames.contract')),
-            'eloquent' => str_replace('{name}', $this->argument('name'), config('repoist.fileNames.eloquent')),
+            'contract' => str_replace('{name}', $this->getActualName(), config('repoist.fileNames.contract')),
+            'eloquent' => str_replace('{name}', $this->getActualName(), config('repoist.fileNames.eloquent'))
         ];
+    }
+
+    /**
+     * @return int
+     */
+    private function getFolderDepth()
+    {
+        return substr_count($this->argument('name'), '/');
+    }
+
+    /**
+     * @return mixed
+     */
+    private function getActualName()
+    {
+        $name = explode('/', $this->argument('name'));
+        return end($name);
+    }
+
+    /**
+     * @return mixed
+     */
+    private function getFolders()
+    {
+        $folders = explode('/', $this->argument('name'));
+        array_pop($folders);
+        return implode('/', $folders);
+    }
+
+    /**
+     * @return mixed
+     */
+    private function getTrailingFolders()
+    {
+        return $this->getFolderDepth() > 0 ? $this->getFolders() : $this->getActualName();
     }
 
     /**
@@ -115,9 +154,10 @@ class RepositoryMakeCommand extends Command
             if ($this->files->exists($path)) {
                 return $this->error($this->meta['names'][$key] . ' already exists!');
             }
+            else {
+                $this->makeDirectory($path);
+            }
         }
-
-        $this->makeDirectory($path);
 
         $this->makeContract();
 
@@ -181,8 +221,8 @@ class RepositoryMakeCommand extends Command
     /**
      * Get the destination class path.
      *
-     * @param  string $name
      * @return string
+     * @internal param string $name
      */
     protected function getModelPath()
     {
@@ -198,10 +238,40 @@ class RepositoryMakeCommand extends Command
      */
     protected function compileContractStub()
     {
-        $stub = $this->files->get(__DIR__ . '/../stubs/contract.stub');
+        if ($this->option('model')) {
+            return $this->compileContractStubWithModel();
+        }
 
-        $this->replaceNamespace($stub)
-             ->replaceContractName($stub);
+        return $this->compileContractStubWithoutModel();
+    }
+
+    /**
+     * Compile the migration stub with model.
+     *
+     * @return string
+     */
+    protected function compileContractStubWithModel()
+    {
+        $stub = $this->files->get(__DIR__ . '/../stubs/contract_with_model.stub');
+
+        $this->replaceContractNamespace($stub)
+            ->replaceContractName($stub)
+            ->replaceModel($stub);
+
+        return $stub;
+    }
+
+    /**
+     * Compile the migration stub without model.
+     *
+     * @return string
+     */
+    protected function compileContractStubWithoutModel()
+    {
+        $stub = $this->files->get(__DIR__ . '/../stubs/contract_without_model.stub');
+
+        $this->replaceContractNamespace($stub)
+            ->replaceContractName($stub);
 
         return $stub;
     }
@@ -229,10 +299,10 @@ class RepositoryMakeCommand extends Command
     {
         $stub = $this->files->get(__DIR__ . '/../stubs/eloquent_with_model.stub');
 
-        $this->replaceNamespace($stub)
-             ->replaceRepositoryName($stub)
-             ->replaceContractName($stub)
-             ->replaceModel($stub);
+        $this->replaceEloquentNamespace($stub)
+            ->replaceRepositoryName($stub)
+            ->replaceContractName($stub)
+            ->replaceModel($stub);
 
         return $stub;
     }
@@ -246,9 +316,9 @@ class RepositoryMakeCommand extends Command
     {
         $stub = $this->files->get(__DIR__ . '/../stubs/eloquent_without_model.stub');
 
-        $this->replaceNamespace($stub)
-             ->replaceRepositoryName($stub)
-             ->replaceContractName($stub);
+        $this->replaceEloquentNamespace($stub)
+            ->replaceRepositoryName($stub)
+            ->replaceContractName($stub);
 
         return $stub;
     }
@@ -259,9 +329,22 @@ class RepositoryMakeCommand extends Command
      * @param  string $stub
      * @return $this
      */
-    protected function replaceNamespace(&$stub)
+    protected function replaceContractNamespace(&$stub)
     {
-        $stub = str_replace('{{namespace}}', $this->meta['namespace'], $stub);
+        $stub = str_replace('{{namespace}}', $this->meta['namespaces']['contract'], $stub);
+
+        return $this;
+    }
+
+    /**
+     * Replace the class name in the stub.
+     *
+     * @param  string $stub
+     * @return $this
+     */
+    protected function replaceEloquentNamespace(&$stub)
+    {
+        $stub = str_replace('{{namespace}}', $this->meta['namespaces']['eloquent'], $stub);
 
         return $this;
     }
@@ -275,6 +358,7 @@ class RepositoryMakeCommand extends Command
     protected function replaceContractName(&$stub)
     {
         $stub = str_replace('{{contract}}', $this->meta['names']['contract'], $stub);
+        $stub = str_replace('{{contract_path}}', $this->meta['namespaces']['contract'].'\\'.$this->meta['names']['contract'], $stub);
 
         return $this;
     }
@@ -302,11 +386,11 @@ class RepositoryMakeCommand extends Command
     {
         $model_path = (config('repoist.model_path') != '') ? config('repoist.model_path').'\\' : '';
 
-        $namespace = $this->getAppNamespace().$model_path.$this->argument('name');
+        $namespace = $this->getAppNamespace().$model_path.str_replace('/', '\\', $this->argument('name'));
 
         $stub = str_replace('{{model_use}}', $namespace, $stub);
 
-        $stub = str_replace('{{model}}', $this->argument('name'), $stub);
+        $stub = str_replace('{{model}}', $this->getActualName(), $stub);
 
         return $this;
     }

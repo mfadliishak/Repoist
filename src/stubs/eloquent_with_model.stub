@@ -1,12 +1,33 @@
 <?php namespace {{namespace}};
 
+use {{contract_path}} as {{contract}}Interface;
 use {{model_use}};
 
-class {{class}} implements {{contract}}
+class {{class}} implements {{contract}}Interface
 {
     
-    public function getAll()
+    public function all()
     {
         return {{model}}::all();
+    }
+
+    public function find($id)
+    {
+        return {{model}}::query()->find($id);
+    }
+
+    public function create($data)
+    {
+        return {{model}}::create($data);
+    }
+
+    public function update({{model}} $model, $data)
+    {
+        $model->update($data);
+    }
+
+    public function delete({{model}} $model)
+    {
+        $model->delete();
     }
 }
