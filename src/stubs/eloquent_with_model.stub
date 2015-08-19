@@ -23,7 +23,7 @@ class {{class}} implements {{contract}}Interface
 
     public function update({{model}} $model, $data)
     {
-        $model->update($data);
+        return $model->update($data);
     }
 
     public function delete({{model}} $model)
